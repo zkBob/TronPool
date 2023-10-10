@@ -8,12 +8,7 @@ var DelegatedDepositVerifier = artifacts.require("DelegatedDepositVerifier");
 var ZkBobPoolERC20 = artifacts.require("ZkBobPoolERC20");
 
 module.exports = async function(deployer) {
-    const usdt = TronWeb.address.toHex('TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs');
-    const tronWeb = new TronWeb({
-        fullNode: 'https://api.shasta.trongrid.io',
-        solidityNode: 'https://api.shasta.trongrid.io',
-    }, deployer.options.options.privateKey);
-
+    const usdt = TronWeb.address.toHex(process.env.TOKEN);
     await deployer.deploy(TransferVerifier);
     const transferVerifier = await TransferVerifier.deployed();
     await deployer.deploy(TreeUpdateVerifier);

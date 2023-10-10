@@ -190,13 +190,6 @@ abstract contract ZkBobPool is IZkBobPool, EIP1967Admin, Ownable, Parameters, Zk
      * Single transact() call performs either deposit, withdrawal or shielded transfer operation.
      */
     function transact() external onlyOperator {
-        {
-            uint256 keccakCount = _transfer_proof()[0];
-            bytes memory h = abi.encodePacked(keccakCount);
-            for (uint256 i = 0; i < keccakCount; ++i) {
-                h = abi.encodePacked(keccak256(h));
-            }
-        }
         address user = msg.sender;
         uint256 txType = _tx_type();
         if (txType == 0) {

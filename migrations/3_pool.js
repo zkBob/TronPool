@@ -41,8 +41,7 @@ function encodeParams(inputs) {
 }
 
 module.exports = async function(deployer) {
-    console.log(deployer);
-    const usdt = TronWeb.address.toHex('TG3XXyExBkPp9nzdajDZsozEu4BkaSJozs');
+    const usdt = TronWeb.address.toHex(process.env.TOKEN);
     const tronWeb = new TronWeb({
         fullNode: deployer.options.options.fullHost,
         solidityNode: deployer.options.options.fullHost,
