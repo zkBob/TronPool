@@ -52,7 +52,7 @@ module.exports = async function(deployer) {
     const poolProxy = await EIP1967Proxy.deployed();
 
     const params = encodeParams([
-        {type: 'uint256', value: '11469701942666298368112882412133877458305516134926649826543144744382391691533'}, // zkBobInitialRoot
+        {type: 'uint256', value: process.env.INITIAL_ROOT}, // zkBobInitialRoot
         {type: 'uint256', value: '144115188075855871'}, // zkBobPoolCap
         {type: 'uint256', value: '8589934591'}, // zkBobDailyDepositCap
         {type: 'uint256', value: '8589934591'}, // zkBobDailyWithdrawalCap
@@ -112,9 +112,9 @@ module.exports = async function(deployer) {
 
     await deployer.deploy(
         MutableOperatorManager,
-        deployerAddress, // relayer
-        deployerAddress, // feeReceiver
-        "https://relayer-mvp.zkbob.com",
+        tronWeb.address.fromHex(process.env.RELAYER), // relayer
+        tronWeb.address.fromHex(process.env.FEE_RECEIVER), // feeReceiver
+        process.env.RELAYER_URL, // url
     );
     const operatorManager = await MutableOperatorManager.deployed();
 
@@ -161,5 +161,74 @@ module.exports = async function(deployer) {
     console.log('Operator: ', tronWeb.address.fromHex(operatorManager.address));
     console.log('Pool: ', tronWeb.address.fromHex(poolProxy.address));
     console.log('Direct deposit queue: ', tronWeb.address.fromHex(process.env.QUEUE_PROXY));
+
+
+    if (process.env.OWNER) {
+        transaction = await tronWeb.transactionBuilder.triggerSmartContract(
+            poolProxy.address,
+            'transferOwnership(address)',
+            {},
+            [
+                {type: 'address', value: tronWeb.address.toHex(process.env.OWNER)},
+            ],
+        );
+        signed = await tronWeb.trx.sign(
+            transaction.transaction,
+            deployer.options.options.privateKey,
+        );
+        result = await tronWeb.trx.sendRawTransaction(
+            signed
+        );
+
+        transaction = await tronWeb.transactionBuilder.triggerSmartContract(
+            process.env.QUEUE_PROXY,
+            'transferOwnership(address)',
+            {},
+            [
+                {type: 'address', value: tronWeb.address.toHex(process.env.OWNER)},
+            ],
+        );
+        signed = await tronWeb.trx.sign(
+            transaction.transaction,
+            deployer.options.options.privateKey,
+        );
+        result = await tronWeb.trx.sendRawTransaction(
+            signed
+        );
+    }
+
+    if (tronWeb.address.toHex(process.env.ADMIN) != deployerAddress) {
+        transaction = await tronWeb.transactionBuilder.triggerSmartContract(
+            poolProxy.address,
+            'setAdmin(address)',
+            {},
+            [
+                {type: 'address', value: tronWeb.address.toHex(process.env.ADMIN)},
+            ],
+        );
+        signed = await tronWeb.trx.sign(
+            transaction.transaction,
+            deployer.options.options.privateKey,
+        );
+        result = await tronWeb.trx.sendRawTransaction(
+            signed
+        );
+
+        transaction = await tronWeb.transactionBuilder.triggerSmartContract(
+            process.env.QUEUE_PROXY,
+            'setAdmin(address)',
+            {},
+            [
+                {type: 'address', value: tronWeb.address.toHex(process.env.ADMIN)},
+            ],
+        );
+        signed = await tronWeb.trx.sign(
+            transaction.transaction,
+            deployer.options.options.privateKey,
+        );
+        result = await tronWeb.trx.sendRawTransaction(
+            signed
+        );
+    }
 
 };
