@@ -254,7 +254,7 @@ abstract contract ZkBobPool is IZkBobPool, EIP1967Admin, Ownable, Parameters, Zk
             }
 
             if (withdraw_amount > 0) {
-                IERC20(token).safeTransfer(user, withdraw_amount);
+                IERC20(token).transfer(user, withdraw_amount);
             }
 
             // energy withdrawals are not yet implemented, any transaction with non-zero energy_amount will revert
