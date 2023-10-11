@@ -17,5 +17,18 @@ module.exports = async function(deployer) {
 
     await deployer.deploy(UniswapV3Seller, swapRouter, quoter, usdt, fee, '410000000000000000000000000000000000000000', 0);
     const seller = await UniswapV3Seller.deployed();
+
+    {
+        var transaction = await tronWeb.transactionBuilder.triggerSmartContract(
+            tronWeb.address.toHex(),
+            'setTokenSeller(address)',
+            {},
+            [
+                {type: 'address', value: seller.address},
+            ]
+        );
+        var signed = await tronWeb.trx.sign(transaction.transaction, deployer.options.options.privateKey);
+        await tronWeb.trx.sendRawTransaction(signed);
+    }
     
 };
