@@ -106,21 +106,21 @@ async function setAdmin(deployer, tronWeb, contractAddress, newAdmin) {
     return await tronWeb.trx.sendRawTransaction(signed);
 }
 
-function assert(condition, message) {
-    if (!condition) {
+async function assertSuccess(tronWeb, result, message) {
+    if (!result.result) {
+        console.log("Result: " + result);
         throw new Error(message || "Assertion failed");
     }
-}
-
-async function assertSuccess(tronWeb, result, message) {
-    assert(result.result, message);
 
     var info = await tronWeb.trx.getTransactionInfo(result.txid);
     while (!info.receipt) {
         await new Promise(r => setTimeout(r, 1000));
         info = await tronWeb.trx.getTransactionInfo(result.txid);
     }
-    assert(info.receipt.result == 'SUCCESS', message);
+    if (info.receipt.result != 'SUCCESS') {
+        console.log("Info: " + info);
+        throw new Error(message || "Assertion failed");
+    }
 }
 
 module.exports = async function(deployer) {
@@ -149,7 +149,6 @@ module.exports = async function(deployer) {
     // 2. Initialize pool
     var selector = ZkBobPoolERC20.web3.eth.abi.encodeFunctionSignature("initialize(uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256)");
     selector += params;
-    console.log(poolProxy.address)
     var transaction = await tronWeb.transactionBuilder.triggerSmartContract(
         poolProxy.address,
         'upgradeToAndCall(address,bytes)',
@@ -164,10 +163,8 @@ module.exports = async function(deployer) {
         deployer.options.options.privateKey,
     );
     var result = await tronWeb.trx.sendRawTransaction(signed);
-    if (!result.result) {
-        console.log('Could not initialize pool');
-        return;
-    }
+    await assertSuccess(tronWeb, result, 'Could not initialize pool');
+    console.log("Initialized pool");
 
     // 3. Deploy direct deposit queue implementation
     await deployer.deploy(Base58);
@@ -198,10 +195,8 @@ module.exports = async function(deployer) {
     result = await tronWeb.trx.sendRawTransaction(
         signed
     );
-    if (!result.result) {
-        console.log('Could not upgrade queue proxy');
-        return;
-    }
+    await assertSuccess(tronWeb, result, 'Could not upgrade direct deposit queue proxy');
+    console.log("Upgraded direct deposit queue proxy");
 
     // 5. Deploy MPCGuard with process.env.RELAYER as operator
     await deployer.deploy(
@@ -228,19 +223,14 @@ module.exports = async function(deployer) {
     // 8. Set operator manager
     result = await setOperatorManager(deployer, tronWeb, process.env.QUEUE_PROXY, operatorManager.address);
     await assertSuccess(tronWeb, result, 'Could not set operator manager for queue proxy');
-    console.log("Set operator manager for queue proxy to " + operatorManager.address);
+    console.log("Set operator manager for queue proxy to " + TronWeb.address.fromHex(operatorManager.address));
 
     result = await setOperatorManager(deployer, tronWeb, poolProxy.address, operatorManager.address);
     await assertSuccess(tronWeb, result, 'Could not set operator manager for pool proxy');
-    console.log("Set operator manager for pool proxy to " + operatorManager.address);
-
-    console.log('MPCGuard: ', tronWeb.address.fromHex(mpcGuard.address));
-    console.log('Operator: ', tronWeb.address.fromHex(operatorManager.address));
-    console.log('Pool: ', tronWeb.address.fromHex(poolProxy.address));
-    console.log('Direct deposit queue: ', tronWeb.address.fromHex(process.env.QUEUE_PROXY));
+    console.log("Set operator manager for pool proxy to " + TronWeb.address.fromHex(operatorManager.address));
 
     // 9. Transfer ownership
-    if (process.env.OWNER) {
+    if (process.env.OWNER && tronWeb.address.toHex(process.env.OWNER) != deployerAddress) {
         result = await transferOwnership(deployer, tronWeb, poolProxy.address, process.env.OWNER);
         await assertSuccess(tronWeb, result, 'Could not transfer ownership of pool proxy');
         console.log("Transfer ownership of pool proxy to " + process.env.OWNER);
@@ -259,7 +249,7 @@ module.exports = async function(deployer) {
     }
 
     // 10. Set admin
-    if (tronWeb.address.toHex(process.env.ADMIN) != deployerAddress) {
+    if (process.env.ADMIN && tronWeb.address.toHex(process.env.ADMIN) != deployerAddress) {
         result = await setAdmin(deployer, tronWeb, poolProxy.address, process.env.ADMIN);
         await assertSuccess(tronWeb, result, 'Could not set admin of pool proxy');
         console.log("Set admin of pool proxy to " + process.env.ADMIN);
@@ -268,4 +258,9 @@ module.exports = async function(deployer) {
         await assertSuccess(tronWeb, result, 'Could not set admin of queue proxy');
         console.log("Set admin of queue proxy to " + process.env.ADMIN);
     }
+
+    console.log('MPCGuard: ', tronWeb.address.fromHex(mpcGuard.address));
+    console.log('Operator: ', tronWeb.address.fromHex(operatorManager.address));
+    console.log('Pool: ', tronWeb.address.fromHex(poolProxy.address));
+    console.log('Direct deposit queue: ', tronWeb.address.fromHex(process.env.QUEUE_PROXY));
 };

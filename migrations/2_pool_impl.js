@@ -11,6 +11,7 @@ var ZkBobPoolERC20 = artifacts.require("ZkBobPoolERC20");
 
 module.exports = async function(deployer) {
     const usdt = TronWeb.address.fromHex(process.env.TOKEN);
+    // 410000000000000000000000000000000000000000 does not work for some reason
     const zeroAddress = TronWeb.address.fromHex('410000000000000000000000000000000000000001');
     
     // 1. Deploy verifiers
@@ -46,7 +47,6 @@ module.exports = async function(deployer) {
     const deployerAddress = TronWeb.address.toHex(deployer.options.options.from);
     await deployer.deploy(EIP1967Proxy, deployerAddress, zeroAddress, []);
     const queueProxy = await EIP1967Proxy.deployed();
-    console.log('Queue proxy: ', queueProxy.address);
 
     // 3. Deploy pool implementation
     await deployer.deploy(
@@ -62,5 +62,7 @@ module.exports = async function(deployer) {
         1000000,
     );
     const poolImpl = await ZkBobPoolERC20.deployed();
-    console.log('Pool implementation: ', poolImpl.address);
+    
+    console.log('Pool implementation: ', TronWeb.address.fromHex(poolImpl.address));
+    console.log('Queue proxy: ', TronWeb.address.fromHex(queueProxy.address));
 };
