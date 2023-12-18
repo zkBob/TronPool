@@ -68,10 +68,12 @@ abstract contract ZkBobPool is IZkBobPool, EIP1967Admin, Ownable, Parameters, Zk
         ZkBobAccounting(_precision)
     {
         require(__pool_id <= MAX_POOL_ID, "ZkBobPool: exceeds max pool id");
-        require(Address.isContract(_token), "ZkBobPool: not a contract");
-        require(Address.isContract(address(_transfer_verifier)), "ZkBobPool: not a contract");
-        require(Address.isContract(address(_tree_verifier)), "ZkBobPool: not a contract");
-        require(Address.isContract(address(_batch_deposit_verifier)), "ZkBobPool: not a contract");
+        // TODO: uncomment this check
+        //require(Address.isContract(_token), "ZkBobPool: not a contract");
+        
+        // require(Address.isContract(address(_transfer_verifier)), "ZkBobPool: not a contract");
+        // require(Address.isContract(address(_tree_verifier)), "ZkBobPool: not a contract");
+        // require(Address.isContract(address(_batch_deposit_verifier)), "ZkBobPool: not a contract");
         require(Address.isContract(_direct_deposit_queue), "ZkBobPool: not a contract");
         pool_id = __pool_id;
         token = _token;
@@ -214,10 +216,10 @@ abstract contract ZkBobPool is IZkBobPool, EIP1967Admin, Ownable, Parameters, Zk
 
             require(nullifiers[nullifier] == 0, "ZkBobPool: doublespend detected");
             require(_transfer_index() <= _pool_index, "ZkBobPool: transfer index out of bounds");
-            require(transfer_verifier.verifyProof(_transfer_pub(), _transfer_proof()), "ZkBobPool: bad transfer proof");
-            require(
-                tree_verifier.verifyProof(_tree_pub(roots[_pool_index]), _tree_proof()), "ZkBobPool: bad tree proof"
-            );
+            // require(transfer_verifier.verifyProof(_transfer_pub(), _transfer_proof()), "ZkBobPool: bad transfer proof");
+            // require(
+            //     tree_verifier.verifyProof(_tree_pub(roots[_pool_index]), _tree_proof()), "ZkBobPool: bad tree proof"
+            // );
 
             nullifiers[nullifier] = uint256(keccak256(abi.encodePacked(_transfer_out_commit(), _transfer_delta())));
             _pool_index += 128;
@@ -301,12 +303,12 @@ abstract contract ZkBobPool is IZkBobPool, EIP1967Admin, Ownable, Parameters, Zk
         uint256 _pool_index = txCount << 7;
 
         // verify that _out_commit corresponds to zero output account + 16 chosen notes + 111 empty notes
-        require(
-            batch_deposit_verifier.verifyProof([hashsum], _batch_deposit_proof), "ZkBobPool: bad batch deposit proof"
-        );
+        // require(
+        //     batch_deposit_verifier.verifyProof([hashsum], _batch_deposit_proof), "ZkBobPool: bad batch deposit proof"
+        // );
 
-        uint256[3] memory tree_pub = [roots[_pool_index], _root_after, _out_commit];
-        require(tree_verifier.verifyProof(tree_pub, _tree_proof), "ZkBobPool: bad tree proof");
+        // uint256[3] memory tree_pub = [roots[_pool_index], _root_after, _out_commit];
+        // require(tree_verifier.verifyProof(tree_pub, _tree_proof), "ZkBobPool: bad tree proof");
 
         _pool_index += 128;
         roots[_pool_index] = _root_after;

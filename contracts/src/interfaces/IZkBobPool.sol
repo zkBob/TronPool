@@ -6,4 +6,12 @@ interface IZkBobPool {
     function pool_id() external view returns (uint256);
 
     function recordDirectDeposit(address _sender, uint256 _amount) external;
+
+    function appendDirectDeposits(
+        uint256 _root_after,
+        uint256[] calldata _indices,
+        uint256 _out_commit,
+        uint256[8] memory _batch_deposit_proof,
+        uint256[8] memory _tree_proof
+    ) external;
 }

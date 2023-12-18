@@ -7,6 +7,7 @@ var ZkBobDirectDepositQueue = artifacts.require("ZkBobDirectDepositQueue");
 var MutableOperatorManager = artifacts.require("MutableOperatorManager");
 var ZkAddress = artifacts.require("ZkAddress");
 var Base58 = artifacts.require("Base58");
+var MPCGuard = artifacts.require("MPCGuard");
 
 const abiCoder = new ethers.AbiCoder();
 const ADDRESS_PREFIX_REGEX = /^(41)/;
@@ -37,16 +38,99 @@ function encodeParams(inputs) {
         console.log(ex);
     }
     return parameters
+}
 
+async function setGuards(deployer, tronWeb, mpcGuard) {
+    // parse guards addresses from process.env.MPC_GUARDS
+    const guards = process.env.MPC_GUARDS.split(',');
+    var transaction = await tronWeb.transactionBuilder.triggerSmartContract(
+        mpcGuard,
+        'setGuards(address[])',
+        {},
+        [
+            {type: 'address[]', value: guards},
+        ],
+    );
+    var signed = await tronWeb.trx.sign(
+        transaction.transaction,
+        deployer.options.options.privateKey,
+    );
+    return await tronWeb.trx.sendRawTransaction(signed);
+}
+
+async function setOperatorManager(deployer, tronWeb, contractAddress, operatorManager) {
+    var transaction = await tronWeb.transactionBuilder.triggerSmartContract(
+        contractAddress,
+        'setOperatorManager(address)',
+        {},
+        [
+            {type: 'address', value: tronWeb.address.fromHex(operatorManager)},
+        ],
+    );
+    var signed = await tronWeb.trx.sign(
+        transaction.transaction,
+        deployer.options.options.privateKey,
+    );
+    return await tronWeb.trx.sendRawTransaction(signed);
+}
+
+async function transferOwnership(deployer, tronWeb, contractAddress, newOwner) {
+    var transaction = await tronWeb.transactionBuilder.triggerSmartContract(
+        contractAddress,
+        'transferOwnership(address)',
+        {},
+        [
+            {type: 'address', value: tronWeb.address.fromHex(newOwner)},
+        ],
+    );
+    var signed = await tronWeb.trx.sign(
+        transaction.transaction,
+        deployer.options.options.privateKey,
+    );
+    return await tronWeb.trx.sendRawTransaction(signed);
+}
+
+async function setAdmin(deployer, tronWeb, contractAddress, newAdmin) {
+    var transaction = await tronWeb.transactionBuilder.triggerSmartContract(
+        contractAddress,
+        'setAdmin(address)',
+        {},
+        [
+            {type: 'address', value: tronWeb.address.fromHex(newAdmin)},
+        ],
+    );
+    var signed = await tronWeb.trx.sign(
+        transaction.transaction,
+        deployer.options.options.privateKey,
+    );
+    return await tronWeb.trx.sendRawTransaction(signed);
+}
+
+function assert(condition, message) {
+    if (!condition) {
+        throw new Error(message || "Assertion failed");
+    }
+}
+
+async function assertSuccess(tronWeb, result, message) {
+    assert(result.result, message);
+
+    var info = await tronWeb.trx.getTransactionInfo(result.txid);
+    while (!info.receipt) {
+        await new Promise(r => setTimeout(r, 1000));
+        info = await tronWeb.trx.getTransactionInfo(result.txid);
+    }
+    assert(info.receipt.result == 'SUCCESS', message);
 }
 
 module.exports = async function(deployer) {
-    const usdt = TronWeb.address.toHex(process.env.TOKEN);
+    const usdt = TronWeb.address.fromHex(process.env.TOKEN);
     const tronWeb = new TronWeb({
         fullNode: deployer.options.options.fullHost,
         solidityNode: deployer.options.options.fullHost,
     }, deployer.options.options.privateKey);
 
+    // 1. Deploy pool proxy
     const deployerAddress = TronWeb.address.toHex(deployer.options.options.from);
     await deployer.deploy(EIP1967Proxy, deployerAddress, usdt, []);
     const poolProxy = await EIP1967Proxy.deployed();
@@ -62,6 +146,7 @@ module.exports = async function(deployer) {
         {type: 'uint256', value: '0'}, // zkBobDirectDepositCap
     ]);
 
+    // 2. Initialize pool
     var selector = ZkBobPoolERC20.web3.eth.abi.encodeFunctionSignature("initialize(uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256)");
     selector += params;
     console.log(poolProxy.address)
@@ -84,12 +169,20 @@ module.exports = async function(deployer) {
         return;
     }
 
+    // 3. Deploy direct deposit queue implementation
     await deployer.deploy(Base58);
     await deployer.link(Base58, ZkAddress);
     await deployer.deploy(ZkAddress);
     await deployer.link(ZkAddress, ZkBobDirectDepositQueue);
-    await deployer.deploy(ZkBobDirectDepositQueue, poolProxy.address, usdt, 1);
+    await deployer.deploy(
+        ZkBobDirectDepositQueue, 
+        TronWeb.address.fromHex(poolProxy.address), 
+        usdt, 
+        1,
+    );
     const queueImpl = await ZkBobDirectDepositQueue.deployed();
+    
+    // 4. Upgrade direct deposit queue proxy
     transaction = await tronWeb.transactionBuilder.triggerSmartContract(
         process.env.QUEUE_PROXY,
         'upgradeTo(address)',
@@ -110,125 +203,69 @@ module.exports = async function(deployer) {
         return;
     }
 
+    // 5. Deploy MPCGuard with process.env.RELAYER as operator
+    await deployer.deploy(
+        MPCGuard,
+        tronWeb.address.fromHex(process.env.RELAYER), // operator
+        poolProxy.address, // pool
+    );
+    const mpcGuard = await MPCGuard.deployed();
+
+    // 6. Set guards
+    result = await setGuards(deployer, tronWeb, mpcGuard.address);
+    await assertSuccess(tronWeb, result, 'Could not set guards');
+    console.log("Set guards to " + process.env.MPC_GUARDS);
+
+    // 7. Deploy MutableOperatorManager with MPCGuard as operator
     await deployer.deploy(
         MutableOperatorManager,
-        tronWeb.address.fromHex(process.env.RELAYER), // relayer
+        mpcGuard.address, // mpc guard
         tronWeb.address.fromHex(process.env.FEE_RECEIVER), // feeReceiver
         process.env.RELAYER_URL, // url
     );
     const operatorManager = await MutableOperatorManager.deployed();
 
-    transaction = await tronWeb.transactionBuilder.triggerSmartContract(
-        process.env.QUEUE_PROXY,
-        'setOperatorManager(address)',
-        {},
-        [
-            {type: 'address', value: operatorManager.address}, 
-        ]
-    );
-    signed = await tronWeb.trx.sign(
-        transaction.transaction,
-        deployer.options.options.privateKey,
-    );
-    result = await tronWeb.trx.sendRawTransaction(
-        signed
-    );
-    if (!result.result) {
-        console.log('Could not set operator manager for queue proxy');
-        return;
-    }
+    // 8. Set operator manager
+    result = await setOperatorManager(deployer, tronWeb, process.env.QUEUE_PROXY, operatorManager.address);
+    await assertSuccess(tronWeb, result, 'Could not set operator manager for queue proxy');
+    console.log("Set operator manager for queue proxy to " + operatorManager.address);
 
-    transaction = await tronWeb.transactionBuilder.triggerSmartContract(
-        poolProxy.address,
-        'setOperatorManager(address)',
-        {},
-        [
-            {type: 'address', value: operatorManager.address},
-        ]
-    );
-    signed = await tronWeb.trx.sign(
-        transaction.transaction,
-        deployer.options.options.privateKey,
-    );
-    result = await tronWeb.trx.sendRawTransaction(
-        signed
-    );
-    if (!result.result) {
-        console.log('Could not set operator manager for pool');
-        return;
-    }
+    result = await setOperatorManager(deployer, tronWeb, poolProxy.address, operatorManager.address);
+    await assertSuccess(tronWeb, result, 'Could not set operator manager for pool proxy');
+    console.log("Set operator manager for pool proxy to " + operatorManager.address);
 
+    console.log('MPCGuard: ', tronWeb.address.fromHex(mpcGuard.address));
     console.log('Operator: ', tronWeb.address.fromHex(operatorManager.address));
     console.log('Pool: ', tronWeb.address.fromHex(poolProxy.address));
     console.log('Direct deposit queue: ', tronWeb.address.fromHex(process.env.QUEUE_PROXY));
 
-
+    // 9. Transfer ownership
     if (process.env.OWNER) {
-        transaction = await tronWeb.transactionBuilder.triggerSmartContract(
-            poolProxy.address,
-            'transferOwnership(address)',
-            {},
-            [
-                {type: 'address', value: tronWeb.address.toHex(process.env.OWNER)},
-            ],
-        );
-        signed = await tronWeb.trx.sign(
-            transaction.transaction,
-            deployer.options.options.privateKey,
-        );
-        result = await tronWeb.trx.sendRawTransaction(
-            signed
-        );
+        result = await transferOwnership(deployer, tronWeb, poolProxy.address, process.env.OWNER);
+        await assertSuccess(tronWeb, result, 'Could not transfer ownership of pool proxy');
+        console.log("Transfer ownership of pool proxy to " + process.env.OWNER);
 
-        transaction = await tronWeb.transactionBuilder.triggerSmartContract(
-            process.env.QUEUE_PROXY,
-            'transferOwnership(address)',
-            {},
-            [
-                {type: 'address', value: tronWeb.address.toHex(process.env.OWNER)},
-            ],
-        );
-        signed = await tronWeb.trx.sign(
-            transaction.transaction,
-            deployer.options.options.privateKey,
-        );
-        result = await tronWeb.trx.sendRawTransaction(
-            signed
-        );
+        result = await transferOwnership(deployer, tronWeb, process.env.QUEUE_PROXY, process.env.OWNER);
+        await assertSuccess(tronWeb, result, 'Could not transfer ownership of queue proxy');
+        console.log("Transfer ownership of queue proxy to " + process.env.OWNER);
+
+        result = await transferOwnership(deployer, tronWeb, operatorManager.address, process.env.OWNER);
+        await assertSuccess(tronWeb, result, 'Could not transfer ownership of operator manager');
+        console.log("Transfer ownership of operator manager to " + process.env.OWNER);
+
+        result = await transferOwnership(deployer, tronWeb, mpcGuard.address, process.env.OWNER);
+        await assertSuccess(tronWeb, result, 'Could not transfer ownership of MPC guard');
+        console.log("Transfer ownership of MPC guard to " + process.env.OWNER);
     }
 
+    // 10. Set admin
     if (tronWeb.address.toHex(process.env.ADMIN) != deployerAddress) {
-        transaction = await tronWeb.transactionBuilder.triggerSmartContract(
-            poolProxy.address,
-            'setAdmin(address)',
-            {},
-            [
-                {type: 'address', value: tronWeb.address.toHex(process.env.ADMIN)},
-            ],
-        );
-        signed = await tronWeb.trx.sign(
-            transaction.transaction,
-            deployer.options.options.privateKey,
-        );
-        result = await tronWeb.trx.sendRawTransaction(
-            signed
-        );
+        result = await setAdmin(deployer, tronWeb, poolProxy.address, process.env.ADMIN);
+        await assertSuccess(tronWeb, result, 'Could not set admin of pool proxy');
+        console.log("Set admin of pool proxy to " + process.env.ADMIN);
 
-        transaction = await tronWeb.transactionBuilder.triggerSmartContract(
-            process.env.QUEUE_PROXY,
-            'setAdmin(address)',
-            {},
-            [
-                {type: 'address', value: tronWeb.address.toHex(process.env.ADMIN)},
-            ],
-        );
-        signed = await tronWeb.trx.sign(
-            transaction.transaction,
-            deployer.options.options.privateKey,
-        );
-        result = await tronWeb.trx.sendRawTransaction(
-            signed
-        );
+        result = await setAdmin(deployer, tronWeb, process.env.QUEUE_PROXY, process.env.ADMIN);
+        await assertSuccess(tronWeb, result, 'Could not set admin of queue proxy');
+        console.log("Set admin of queue proxy to " + process.env.ADMIN);
     }
-
 };

@@ -1,6 +1,4 @@
 var Migrations = artifacts.require("Migrations");
-const TronWeb = require('tronweb');
-
 
 module.exports = async function(deployer) {
   await deployer.deploy(Migrations);
