@@ -52,8 +52,7 @@ contract ZkBobDirectDepositQueue is IZkBobDirectDeposits, IZkBobDirectDepositQue
     event CompleteDirectDepositBatch(uint256[] indices);
 
     constructor(address _pool, address _token, uint256 _denominator) {
-        // TODO: uncomment this check
-        //require(Address.isContract(_token), "ZkBobDirectDepositQueue: not a contract");
+        require(Address.isContract(_token), "ZkBobDirectDepositQueue: not a contract");
         pool = _pool;
         token = _token;
         TOKEN_DENOMINATOR = _denominator;

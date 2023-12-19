@@ -11,7 +11,7 @@ import "../../interfaces/IZkBobPool.sol";
 contract MPCGuard is Ownable, CustomABIDecoder {
     address[] public guards;
 
-    address operator;
+    address public operator;
 
     address public immutable pool;
 

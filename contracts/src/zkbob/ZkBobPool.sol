@@ -68,8 +68,7 @@ abstract contract ZkBobPool is IZkBobPool, EIP1967Admin, Ownable, Parameters, Zk
         ZkBobAccounting(_precision)
     {
         require(__pool_id <= MAX_POOL_ID, "ZkBobPool: exceeds max pool id");
-        // TODO: uncomment this check
-        //require(Address.isContract(_token), "ZkBobPool: not a contract");
+        require(Address.isContract(_token), "ZkBobPool: not a contract");
         
         // require(Address.isContract(address(_transfer_verifier)), "ZkBobPool: not a contract");
         // require(Address.isContract(address(_tree_verifier)), "ZkBobPool: not a contract");

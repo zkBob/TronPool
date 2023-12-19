@@ -112,6 +112,7 @@ async function assertSuccess(tronWeb, result, message) {
         throw new Error(message || "Assertion failed");
     }
 
+    console.log("Waiting for transaction to be confirmed...");
     var info = await tronWeb.trx.getTransactionInfo(result.txid);
     while (!info.receipt) {
         await new Promise(r => setTimeout(r, 1000));
