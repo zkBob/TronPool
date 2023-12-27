@@ -166,7 +166,38 @@ module.exports = async function(deployer) {
     var result = await tronWeb.trx.sendRawTransaction(signed);
     await assertSuccess(tronWeb, result, 'Could not initialize pool');
     console.log("Initialized pool");
-
+    // 3. Deploy direct deposit queue implementation
+    await deployer.deploy(Base58);
+    await deployer.link(Base58, ZkAddress);
+    await deployer.deploy(ZkAddress);
+    await deployer.link(ZkAddress, ZkBobDirectDepositQueue);
+    await deployer.deploy(
+        ZkBobDirectDepositQueue, 
+        TronWeb.address.fromHex(poolProxy.address), 
+        usdt, 
+        1,
+    );
+    const queueImpl = await ZkBobDirectDepositQueue.deployed();
+    
+    // 4. Upgrade direct deposit queue proxy
+    transaction = await tronWeb.transactionBuilder.triggerSmartContract(
+        process.env.QUEUE_PROXY,
+        'upgradeTo(address)',
+        {},
+        [
+            {'type': 'address', 'value': queueImpl.address},
+        ]
+    );
+    signed = await tronWeb.trx.sign(
+        transaction.transaction,
+        deployer.options.options.privateKey,
+    );
+    result = await tronWeb.trx.sendRawTransaction(
+        signed
+    );
+    await assertSuccess(tronWeb, result, 'Could not upgrade direct deposit queue proxy');
+    console.log("Upgraded direct deposit queue proxy");
+    
     // 5. Deploy MPCGuard with process.env.RELAYER as operator
     await deployer.deploy(
         MPCGuard,

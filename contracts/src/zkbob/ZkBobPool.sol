@@ -73,6 +73,7 @@ abstract contract ZkBobPool is IZkBobPool, EIP1967Admin, Ownable, Parameters, Zk
         // require(Address.isContract(address(_transfer_verifier)), "ZkBobPool: not a contract");
         // require(Address.isContract(address(_tree_verifier)), "ZkBobPool: not a contract");
         // require(Address.isContract(address(_batch_deposit_verifier)), "ZkBobPool: not a contract");
+        require(Address.isContract(_direct_deposit_queue), "ZkBobPool: not a contract");
         pool_id = __pool_id;
         token = _token;
         transfer_verifier = _transfer_verifier;
