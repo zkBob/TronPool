@@ -12,7 +12,7 @@ var ZkBobPoolERC20 = artifacts.require("ZkBobPoolERC20");
 module.exports = async function(deployer) {
     const usdt = TronWeb.address.fromHex(process.env.TOKEN);
     // 410000000000000000000000000000000000000000 does not work for some reason
-    const zeroAddress = '410000000000000000000000000000000000000000';
+    const zeroAddress = TronWeb.address.fromHex('410000000000000000000000000000000000000001');
     
     // 1. Deploy verifiers
     var transferVerifier;
