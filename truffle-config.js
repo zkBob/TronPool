@@ -30,13 +30,13 @@ Then, run the migration with:
     nile: {
       privateKey: process.env.PRIVATE_KEY_NILE,
       userFeePercentage: 100,
-      feeLimit: 1000 * 1e6,
+      feeLimit: 20000 * 1e6,
       fullHost: 'https://nile.trongrid.io',
       network_id: '3'
     },
     development: {
       // For tronbox/tre docker image
-      privateKey: '0000000000000000000000000000000000000000000000000000000000000001',
+      privateKey: '55fffd557ffbce4a378f0976776b84ca65e87e0f47b0ca4f3f58611165c64d3c',
       userFeePercentage: 0,
       feeLimit: 6000 * 1e6,
       fullHost: 'http://127.0.0.1:' + port,

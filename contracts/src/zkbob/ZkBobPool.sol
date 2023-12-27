@@ -73,7 +73,6 @@ abstract contract ZkBobPool is IZkBobPool, EIP1967Admin, Ownable, Parameters, Zk
         // require(Address.isContract(address(_transfer_verifier)), "ZkBobPool: not a contract");
         // require(Address.isContract(address(_tree_verifier)), "ZkBobPool: not a contract");
         // require(Address.isContract(address(_batch_deposit_verifier)), "ZkBobPool: not a contract");
-        require(Address.isContract(_direct_deposit_queue), "ZkBobPool: not a contract");
         pool_id = __pool_id;
         token = _token;
         transfer_verifier = _transfer_verifier;
@@ -177,14 +176,6 @@ abstract contract ZkBobPool is IZkBobPool, EIP1967Admin, Ownable, Parameters, Zk
     function _withdrawNative(address _user, uint256 _tokenAmount) internal virtual returns (uint256);
 
     /**
-     * @dev Performs token transfer using a signed permit signature.
-     * @param _user token depositor address, should correspond to the signature author.
-     * @param _nullifier nullifier and permit signature salt to avoid transaction data manipulation.
-     * @param _tokenAmount amount to tokens to deposit.
-     */
-    function _transferFromByPermit(address _user, uint256 _nullifier, int256 _tokenAmount) internal virtual;
-
-    /**
      * @dev Perform a zkBob pool transaction.
      * Callable only by the current operator.
      * Method uses a custom ABI encoding scheme described in CustomABIDecoder.
@@ -255,7 +246,7 @@ abstract contract ZkBobPool is IZkBobPool, EIP1967Admin, Ownable, Parameters, Zk
             }
 
             if (withdraw_amount > 0) {
-                IERC20(token).transfer(user, withdraw_amount);
+                IERC20(token).safeTransfer(user, withdraw_amount);
             }
 
             // energy withdrawals are not yet implemented, any transaction with non-zero energy_amount will revert
@@ -263,10 +254,6 @@ abstract contract ZkBobPool is IZkBobPool, EIP1967Admin, Ownable, Parameters, Zk
             if (energy_amount < 0) {
                 revert("ZkBobPool: XP claiming is not yet enabled");
             }
-        } else if (txType == 3) {
-            // Permittable token deposit
-            require(transfer_token_delta > 0 && energy_amount == 0, "ZkBobPool: incorrect deposit amounts");
-            _transferFromByPermit(user, nullifier, token_amount);
         } else {
             revert("ZkBobPool: Incorrect transaction type");
         }
