@@ -231,7 +231,7 @@ abstract contract ZkBobPool is IZkBobPool, EIP1967Admin, Ownable, Parameters, Zk
         if (txType == 0) {
             // Deposit
             require(transfer_token_delta > 0 && energy_amount == 0, "ZkBobPool: incorrect deposit amounts");
-            IERC20(token).safeTransferFrom(user, address(this), uint256(token_amount) * TOKEN_DENOMINATOR);
+            IERC20(token).transferFrom(user, address(this), uint256(token_amount) * TOKEN_DENOMINATOR);
         } else if (txType == 1) {
             // Transfer
             require(token_amount == 0 && energy_amount == 0, "ZkBobPool: incorrect transfer amounts");
@@ -247,7 +247,7 @@ abstract contract ZkBobPool is IZkBobPool, EIP1967Admin, Ownable, Parameters, Zk
             }
 
             if (withdraw_amount > 0) {
-                IERC20(token).safeTransfer(user, withdraw_amount);
+                IERC20(token).transfer(user, withdraw_amount);
             }
 
             // energy withdrawals are not yet implemented, any transaction with non-zero energy_amount will revert
