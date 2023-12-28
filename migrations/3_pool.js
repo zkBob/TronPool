@@ -138,13 +138,13 @@ module.exports = async function(deployer) {
 
     const params = encodeParams([
         {type: 'uint256', value: process.env.INITIAL_ROOT}, // zkBobInitialRoot
-        {type: 'uint256', value: '144115188075855871'}, // zkBobPoolCap
-        {type: 'uint256', value: '8589934591'}, // zkBobDailyDepositCap
-        {type: 'uint256', value: '8589934591'}, // zkBobDailyWithdrawalCap
-        {type: 'uint256', value: '8589934591'}, // zkBobDailyUserDepositCap
-        {type: 'uint256', value: '8589934591'}, // zkBobDepositCap
-        {type: 'uint256', value: '0'}, // zkBobDailyUserDirectDepositCap
-        {type: 'uint256', value: '0'}, // zkBobDirectDepositCap
+        {type: 'uint256', value: process.env.POOL_CAP}, // zkBobPoolCap
+        {type: 'uint256', value: process.env.DAILY_DEPOSIT_CAP}, // zkBobDailyDepositCap
+        {type: 'uint256', value: process.env.DAILY_WITHDRAWAL_CAP}, // zkBobDailyWithdrawalCap
+        {type: 'uint256', value: process.env.DAILY_USER_DEPOSIT_CAP}, // zkBobDailyUserDepositCap
+        {type: 'uint256', value: process.env.DEPOSIT_CAP}, // zkBobDepositCap
+        {type: 'uint256', value: process.env.DAILY_USER_DIRECT_DEPOSIT_CAP}, // zkBobDailyUserDirectDepositCap
+        {type: 'uint256', value: process.env.DIRECT_DEPOSIT_CAP}, // zkBobDirectDepositCap
     ]);
 
     // 2. Initialize pool
@@ -197,7 +197,7 @@ module.exports = async function(deployer) {
     );
     await assertSuccess(tronWeb, result, 'Could not upgrade direct deposit queue proxy');
     console.log("Upgraded direct deposit queue proxy");
-    
+
     // 5. Deploy MPCGuard with process.env.RELAYER as operator
     await deployer.deploy(
         MPCGuard,
