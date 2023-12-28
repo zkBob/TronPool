@@ -57,6 +57,22 @@ async function setGuards(deployer, tronWeb, mpcGuard) {
     );
     return await tronWeb.trx.sendRawTransaction(signed);
 }
+async function setTokenSeller(deployer, tronWeb, pool,seller) {
+
+    var transaction = await tronWeb.transactionBuilder.triggerSmartContract(
+        pool,
+        'setTokenSeller(address)',
+        {},
+        [
+            {type: 'address', value: seller},
+        ],
+    );
+    var signed = await tronWeb.trx.sign(
+        transaction.transaction,
+        deployer.options.options.privateKey,
+    );
+    return await tronWeb.trx.sendRawTransaction(signed);
+}
 
 async function setOperatorManager(deployer, tronWeb, contractAddress, operatorManager) {
     var transaction = await tronWeb.transactionBuilder.triggerSmartContract(
@@ -229,6 +245,16 @@ module.exports = async function(deployer) {
     await assertSuccess(tronWeb, result, 'Could not set operator manager for pool proxy');
     console.log("Set operator manager for pool proxy to " + TronWeb.address.fromHex(operatorManager.address));
 
+    // config token seller
+    if (process.env.ROUTER && process.env.QUOTER) {
+        const fee = process.env.POOL_FEE;
+        const swapRouter = TronWeb.address.toHex(process.env.ROUTER);
+        const quoter = TronWeb.address.toHex(process.env.QUOTER);
+    
+        await deployer.deploy(UniswapV3Seller, swapRouter, quoter, usdt, fee, '410000000000000000000000000000000000000000', 0);
+        const seller = await UniswapV3Seller.deployed();
+        await setTokenSeller(deployer, tronWeb, poolProxy.address, seller.address);   
+    }
     // 9. Transfer ownership
     if (process.env.OWNER && tronWeb.address.toHex(process.env.OWNER) != deployerAddress) {
         result = await transferOwnership(deployer, tronWeb, poolProxy.address, process.env.OWNER);
