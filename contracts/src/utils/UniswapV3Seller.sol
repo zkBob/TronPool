@@ -92,7 +92,7 @@ contract UniswapV3Seller is ITokenSeller {
         uint256 remainingBalance = IERC20(token0).balanceOf(address(this));
         if (remainingBalance + _amount > balance) {
             uint256 refund = remainingBalance + _amount - balance;
-            IERC20(token0).safeTransfer(msg.sender, refund);
+            IERC20(token0).transfer(msg.sender, refund);
             return (amountOut, refund);
         }
         return (amountOut, 0);

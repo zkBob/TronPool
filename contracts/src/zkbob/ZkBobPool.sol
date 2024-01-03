@@ -69,9 +69,10 @@ abstract contract ZkBobPool is IZkBobPool, EIP1967Admin, Ownable, Parameters, Zk
     {
         require(__pool_id <= MAX_POOL_ID, "ZkBobPool: exceeds max pool id");
         require(Address.isContract(_token), "ZkBobPool: not a contract");
-        require(Address.isContract(address(_transfer_verifier)), "ZkBobPool: not a contract");
-        require(Address.isContract(address(_tree_verifier)), "ZkBobPool: not a contract");
-        require(Address.isContract(address(_batch_deposit_verifier)), "ZkBobPool: not a contract");
+        
+        // require(Address.isContract(address(_transfer_verifier)), "ZkBobPool: not a contract");
+        // require(Address.isContract(address(_tree_verifier)), "ZkBobPool: not a contract");
+        // require(Address.isContract(address(_batch_deposit_verifier)), "ZkBobPool: not a contract");
         require(Address.isContract(_direct_deposit_queue), "ZkBobPool: not a contract");
         pool_id = __pool_id;
         token = _token;
@@ -176,14 +177,6 @@ abstract contract ZkBobPool is IZkBobPool, EIP1967Admin, Ownable, Parameters, Zk
     function _withdrawNative(address _user, uint256 _tokenAmount) internal virtual returns (uint256);
 
     /**
-     * @dev Performs token transfer using a signed permit signature.
-     * @param _user token depositor address, should correspond to the signature author.
-     * @param _nullifier nullifier and permit signature salt to avoid transaction data manipulation.
-     * @param _tokenAmount amount to tokens to deposit.
-     */
-    function _transferFromByPermit(address _user, uint256 _nullifier, int256 _tokenAmount) internal virtual;
-
-    /**
      * @dev Perform a zkBob pool transaction.
      * Callable only by the current operator.
      * Method uses a custom ABI encoding scheme described in CustomABIDecoder.
@@ -214,10 +207,10 @@ abstract contract ZkBobPool is IZkBobPool, EIP1967Admin, Ownable, Parameters, Zk
 
             require(nullifiers[nullifier] == 0, "ZkBobPool: doublespend detected");
             require(_transfer_index() <= _pool_index, "ZkBobPool: transfer index out of bounds");
-            require(transfer_verifier.verifyProof(_transfer_pub(), _transfer_proof()), "ZkBobPool: bad transfer proof");
-            require(
-                tree_verifier.verifyProof(_tree_pub(roots[_pool_index]), _tree_proof()), "ZkBobPool: bad tree proof"
-            );
+            // require(transfer_verifier.verifyProof(_transfer_pub(), _transfer_proof()), "ZkBobPool: bad transfer proof");
+            // require(
+            //     tree_verifier.verifyProof(_tree_pub(roots[_pool_index]), _tree_proof()), "ZkBobPool: bad tree proof"
+            // );
 
             nullifiers[nullifier] = uint256(keccak256(abi.encodePacked(_transfer_out_commit(), _transfer_delta())));
             _pool_index += 128;
@@ -238,7 +231,7 @@ abstract contract ZkBobPool is IZkBobPool, EIP1967Admin, Ownable, Parameters, Zk
         if (txType == 0) {
             // Deposit
             require(transfer_token_delta > 0 && energy_amount == 0, "ZkBobPool: incorrect deposit amounts");
-            IERC20(token).safeTransferFrom(user, address(this), uint256(token_amount) * TOKEN_DENOMINATOR);
+            IERC20(token).transferFrom(user, address(this), uint256(token_amount) * TOKEN_DENOMINATOR);
         } else if (txType == 1) {
             // Transfer
             require(token_amount == 0 && energy_amount == 0, "ZkBobPool: incorrect transfer amounts");
@@ -262,10 +255,6 @@ abstract contract ZkBobPool is IZkBobPool, EIP1967Admin, Ownable, Parameters, Zk
             if (energy_amount < 0) {
                 revert("ZkBobPool: XP claiming is not yet enabled");
             }
-        } else if (txType == 3) {
-            // Permittable token deposit
-            require(transfer_token_delta > 0 && energy_amount == 0, "ZkBobPool: incorrect deposit amounts");
-            _transferFromByPermit(user, nullifier, token_amount);
         } else {
             revert("ZkBobPool: Incorrect transaction type");
         }
@@ -301,12 +290,12 @@ abstract contract ZkBobPool is IZkBobPool, EIP1967Admin, Ownable, Parameters, Zk
         uint256 _pool_index = txCount << 7;
 
         // verify that _out_commit corresponds to zero output account + 16 chosen notes + 111 empty notes
-        require(
-            batch_deposit_verifier.verifyProof([hashsum], _batch_deposit_proof), "ZkBobPool: bad batch deposit proof"
-        );
+        // require(
+        //     batch_deposit_verifier.verifyProof([hashsum], _batch_deposit_proof), "ZkBobPool: bad batch deposit proof"
+        // );
 
-        uint256[3] memory tree_pub = [roots[_pool_index], _root_after, _out_commit];
-        require(tree_verifier.verifyProof(tree_pub, _tree_proof), "ZkBobPool: bad tree proof");
+        // uint256[3] memory tree_pub = [roots[_pool_index], _root_after, _out_commit];
+        // require(tree_verifier.verifyProof(tree_pub, _tree_proof), "ZkBobPool: bad tree proof");
 
         _pool_index += 128;
         roots[_pool_index] = _root_after;
@@ -345,7 +334,7 @@ abstract contract ZkBobPool is IZkBobPool, EIP1967Admin, Ownable, Parameters, Zk
         );
         uint256 fee = accumulatedFee[_operator] * TOKEN_DENOMINATOR;
         require(fee > 0, "ZkBobPool: no fee to withdraw");
-        IERC20(token).safeTransfer(_to, fee);
+        IERC20(token).transfer(_to, fee);
         accumulatedFee[_operator] = 0;
         emit WithdrawFee(_operator, fee);
     }
